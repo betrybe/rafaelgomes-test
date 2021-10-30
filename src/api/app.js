@@ -1,6 +1,15 @@
 const express = require('express');
+const path = require('path');
 
 const app = express();
+
+// Config JSON response
+app.use(express.json());
+
+// Public folder for images
+app.use('/images', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Routes
 
 // Não remover esse end-point, ele é necessário para o avaliador
 app.get('/', (request, response) => {
