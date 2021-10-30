@@ -1,12 +1,34 @@
 // const User = require('../models/User');
+const validator = require('email-validator');
 
+const createUserToken = require('../helpers/create-user-token');
 const User = require('../models/Users');
 
-function validEntries(req) {
+function validEntriesAdd(req) {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) {
+    
+    if (!email || !password || !name) {
         return false;
-    } 
+    }
+
+    if (!validator.validate(email)) {
+        return false;
+    }
+
+    return true;
+}
+
+function validEntriesLogin(req) {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+        return false;
+    }
+
+    if (!validator.validate(email)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -14,7 +36,7 @@ module.exports = class UserController {
     static async users(req, res) {
         const { name, email, password } = req.body;
         // validations
-        if (!validEntries(req)) {
+        if (!validEntriesAdd(req)) {
             res.status(400).json({ message: 'Invalid entries. Try again.' });
             return;
         } 
@@ -24,12 +46,32 @@ module.exports = class UserController {
             return;
         } 
         // create a user
-        const addUser = new User({ name, email, password, role: 'user' });
+        const newUser = new User({ name, email, password, role: 'user' });
         try {
-            const user = await addUser.save();
+            const nUser = await newUser.save();
+
+            const user = { name: nUser.name, email: nUser.email, role: nUser.role, _id: nUser.id };
+
             res.status(201).json({ user });
         } catch (error) {
             res.status(500).json({ message: error });
         }
+    }
+
+    static async login(req, res) {
+        const { email, password } = req.body;
+        // validations
+        if (!validEntriesLogin(req)) {
+            res.status(401).json({ message: 'All fields must be filled' });
+            return;
+        } 
+
+        const user = await User.findOne({ email, password });
+        if (!user) {
+            res.status(401).json({ message: 'Incorrect username or password' });
+            return;
+        } 
+
+        await createUserToken(user, req, res);
     }
 };

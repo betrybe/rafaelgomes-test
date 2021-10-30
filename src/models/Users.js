@@ -16,6 +16,7 @@ const User = mongoose.model(
         },
         password: {
             type: String,
+            select: false,
             required: true,
         },
         role: {
