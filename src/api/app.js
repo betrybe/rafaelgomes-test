@@ -10,6 +10,9 @@ app.use(express.json());
 app.use('/images', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
+const UserRoutes = require('../routes/UserRoutes');
+
+app.use('/users', UserRoutes);
 
 // Não remover esse end-point, ele é necessário para o avaliador
 app.get('/', (request, response) => {

@@ -1,9 +1,10 @@
 const mongoose = require('../db/conn');
 
-const { Schemma } = mongoose;
+// const { Schemma } = mongoose;
+const Schemma = mongoose.Schema;
 
 const User = mongoose.model(
-    'User',
+    'users',
     new Schemma({
         name: {
             type: String,
@@ -22,7 +23,7 @@ const User = mongoose.model(
             required: true,
         },
     },
-    { timestamps: true }),
+    { versionKey: false }),
 );
 
 module.exports = User;
