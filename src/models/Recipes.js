@@ -1,9 +1,9 @@
 const mongoose = require('../db/conn');
 
-const { Schemma } = mongoose;
+const Schemma = mongoose.Schema;
 
 const Recipe = mongoose.model(
-    'Recipe',
+    'recipes',
     new Schemma({
         name: {
             type: String,
@@ -19,7 +19,7 @@ const Recipe = mongoose.model(
         },
         userId: Object,
     },
-    { timestamps: true }),
+    { versionKey: false }),
 );
 
 module.exports = Recipe;

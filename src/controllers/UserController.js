@@ -1,8 +1,11 @@
-// const User = require('../models/User');
 const validator = require('email-validator');
+const jwt = require('jsonwebtoken');
 
-const createUserToken = require('../helpers/create-user-token');
 const User = require('../models/Users');
+
+// helpers
+const createUserToken = require('../helpers/create-user-token');
+const getToken = require('../helpers/get-token');
 
 function validEntriesAdd(req) {
     const { name, email, password } = req.body;
@@ -73,5 +76,19 @@ module.exports = class UserController {
         } 
 
         await createUserToken(user, req, res);
+    }
+
+    static async checkUser(req, res) {
+        let currentUser;
+        
+        if (req.headers.authorization) {
+            const token = getToken(req);
+            const decoded = jwt.verify(token, 'SECRETFORCOOKMASTER');
+            currentUser = await User.findById(decoded.id);
+        } else {
+            currentUser = null;
+        }
+
+        res.status(200).send(currentUser);
     }
 };
