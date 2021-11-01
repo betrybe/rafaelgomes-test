@@ -34,19 +34,58 @@ async function validToken(req) {
     let currentUser;
 
     const token = getToken(req);
+    
     let tokenDecoded = '';
     try {
         jwt.verify(token, 'SECRETFORCOOKMASTER', (err, decoded) => {
             if (err) return 0;
             tokenDecoded = decoded.id;
         });
-
-        currentUser = await User.findById(tokenDecoded);
+        
+        currentUser = await User.findOne({ id: tokenDecoded });
 
         return currentUser;
     } catch (error) {
         return 0;
     }
+}
+
+async function validId(req) {
+    const { id } = req.params;
+    const result = { status: 200, message: '', recipe: 0 };
+
+    if (!ObjectId.isValid(id)) {
+        result.status = 404;
+        result.message = 'recipe not found';
+        return result;
+    }
+
+    const recipe = await Recipe.findById({ _id: id });
+    if (!recipe) {
+        result.status = 404;
+        result.message = 'recipe not found';
+        return result;
+    } 
+    result.recipe = recipe;
+    return result;
+}
+
+async function validUserRecipe(req, recipe) {
+    const result = { status: 200, message: '', recipe: 0 };
+    const user = await validToken(req);
+    if (user === 0) {
+        result.status = 401;
+        result.message = 'jwt malformed';
+        return result;
+    }
+
+    if (recipe.userId.toString() !== user.id.toString() && user.role !== 'admin') {
+        result.status = 401;
+        result.message = 'jwt malformed';
+        return result;
+    } 
+
+    return result;
 }
 
 async function addRecipe(req, user) {
@@ -90,67 +129,82 @@ module.exports = class RecipeController {
     }
 
     static async getRecipeById(req, res) {
-        const { id } = req.params;
-
-        if (!ObjectId.isValid(id)) {
-            res.status(404).json({ message: 'recipe not found' });
+        // check if recipe exists
+        const result = await validId(req);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
             return;
         }
+        const { recipe } = result;
 
-        const recipe = await Recipe.findById({ _id: id });
-        if (!recipe) {
-            res.status(404).json({ message: 'recipe not found' });
-            return;
-        }
         res.status(200).json(recipe);
     }
 
     static async editRecipe(req, res) {
         const { id } = req.params;
         
-        // check if recipes exists
-        const recipe = await Recipe.findById({ _id: id });
-        if (!recipe) {
-            res.status(404).json({ message: 'recipe not found' });
+        // check if recipe exists
+        let result = await validId(req);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
+            return;
+        }
+        const { recipe } = result;
+
+        result = await validUserRecipe(req, recipe);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
             return;
         }
 
-        const user = await validToken(req);
-        if (user === 0) {
-            res.status(401).json({ message: 'jwt malformed' });
-            return;
-        }
-
-        if (recipe.userId.toString() === user.id.toString() || user.role === 'admin') {
-            await Recipe.findByIdAndUpdate(id, req.body);
-            const recipeUpdated = await Recipe.findById({ _id: id });
-            res.status(200).json(recipeUpdated);
-        } else {
-            res.status(401).json({ message: 'jwt malformed' });
-        }
+        await Recipe.findByIdAndUpdate(id, req.body);
+        const recipeUpdated = await Recipe.findById({ _id: id });
+        res.status(200).json(recipeUpdated);
     }
 
     static async delRecipe(req, res) {
         const { id } = req.params;
         
-        // check if recipes exists
-        const recipe = await Recipe.findById({ _id: id });
-        if (!recipe) {
-            res.status(404).json({ message: 'recipe not found' });
+        // check if recipe exists
+        let result = await validId(req);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
+            return;
+        }
+        const { recipe } = result;
+
+        result = await validUserRecipe(req, recipe);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
             return;
         }
 
-        const user = await validToken(req);
-        if (user === 0) {
-            res.status(401).json({ message: 'missing auth token' });
+        await Recipe.findByIdAndRemove(id);
+        res.status(204).json();
+    }
+
+    static async uploadImage(req, res) {
+        // check if recipe exists
+        let result = await validId(req);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
+            return;
+        }
+        const { recipe } = result;
+
+        result = await validUserRecipe(req, recipe);
+        if (result.status !== 200) {
+            res.status(result.status).json({ message: result.message });
             return;
         }
 
-        if (recipe.userId.toString() === user.id.toString() || user.role === 'admin') {
-            await Recipe.findByIdAndRemove(id);
-            res.status(204).json();
-        } else {
-            res.status(401).json({ message: 'missing auth token' });
+        let image = '';
+        if (req.file) {
+            image = `${req.headers.host}/${req.file.path}`;
         }
+
+        await Recipe.findByIdAndUpdate(req.params.id, { image });
+        const recipeUpdated = await Recipe.findById(req.params.id);
+        res.status(200).json(recipeUpdated);
     }
 };

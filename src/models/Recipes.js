@@ -17,6 +17,10 @@ const Recipe = mongoose.model(
             type: String,
             required: true,
         },
+        image: {
+            type: String,
+            required: false,
+        },
         userId: Object,
     },
     { versionKey: false }),
