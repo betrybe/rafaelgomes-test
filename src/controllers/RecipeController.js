@@ -86,8 +86,6 @@ module.exports = class RecipeController {
 
     static async getAll(req, res) {
         const recipes = await Recipe.find();
-        console.log(recipes);
-
         res.status(200).json(recipes);
     }
 
@@ -129,6 +127,30 @@ module.exports = class RecipeController {
             res.status(200).json(recipeUpdated);
         } else {
             res.status(401).json({ message: 'jwt malformed' });
+        }
+    }
+
+    static async delRecipe(req, res) {
+        const { id } = req.params;
+        
+        // check if recipes exists
+        const recipe = await Recipe.findById({ _id: id });
+        if (!recipe) {
+            res.status(404).json({ message: 'recipe not found' });
+            return;
+        }
+
+        const user = await validToken(req);
+        if (user === 0) {
+            res.status(401).json({ message: 'missing auth token' });
+            return;
+        }
+
+        if (recipe.userId.toString() === user.id.toString() || user.role === 'admin') {
+            await Recipe.findByIdAndRemove(id);
+            res.status(204).json();
+        } else {
+            res.status(401).json({ message: 'missing auth token' });
         }
     }
 };
