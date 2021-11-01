@@ -41,9 +41,7 @@ async function validToken(req) {
             if (err) return 0;
             tokenDecoded = decoded.id;
         });
-        
-        currentUser = await User.findOne({ id: tokenDecoded });
-
+        currentUser = await User.findById(tokenDecoded);
         return currentUser;
     } catch (error) {
         return 0;
@@ -100,7 +98,7 @@ async function addRecipe(req, user) {
 }
 
 module.exports = class RecipeController {
-    static async recipes(req, res) {
+    static async addRecipe(req, res) {
         // validations
         try {
             const result = validEntriesAdd(req);

@@ -6,7 +6,7 @@ const RecipeController = require('../controllers/RecipeController');
 const verifyToken = require('../helpers/verify-token');
 const { imageUpload } = require('../helpers/image-upload');
 
-router.post('/', RecipeController.recipes);
+router.post('/', RecipeController.addRecipe);
 router.get('/', RecipeController.getAll);
 router.get('/:id', RecipeController.getRecipeById);
 router.put('/:id', verifyToken, RecipeController.editRecipe);
