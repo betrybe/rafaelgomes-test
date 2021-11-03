@@ -19,13 +19,17 @@ module.exports = {
     },
 
     async getUserByToken(req) {
-        let currentUser = null;
-        if (req.headers.authorization) {
-            const token = req.headers.authorization;
-            const decoded = jwt.verify(token, 'SECRETFORCOOKMASTER');
-            currentUser = await User.findById(decoded.id);
+        let currentUser = 0;
+        try {
+            if (req.headers.authorization) {
+                const token = req.headers.authorization;
+                const decoded = jwt.verify(token, 'SECRETFORCOOKMASTER');
+                currentUser = await User.findById(decoded.id);
+            }
+            return currentUser;
+        } catch (error) {
+            return currentUser;
         }
-        return currentUser;
     },
 
     validEntriesLogin(req) {

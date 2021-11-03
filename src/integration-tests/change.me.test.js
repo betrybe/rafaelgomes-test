@@ -1,14 +1,149 @@
 var expect = require('chai').expect;
+var chai = require('chai')
+var chaiHttp = require('chai-http');
+
 const frisby = require('frisby');
 const { MongoClient } = require('mongodb');
+
 var recipe = require('../controllers/RecipeController')
 var user = require('../controllers/UserController')
 const usersHelp = require('../helpers/users-helpers');
-const verifyTokenHelp = require('../helpers/verify-token');
+const recipesHelp = require('../helpers/recipes-helpers');
+const app = require('../api/app');
 
-describe('HELPERS', () => {
 
-    describe('Users', () => {
+
+chai.use(chaiHttp);
+
+const mongoDbUrl = 'mongodb://localhost:27017/Cookmaster';
+const url = 'http://localhost:3000';
+
+let connection;
+let db;
+
+before(async () => {
+    connection = await MongoClient.connect(mongoDbUrl, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    });
+    db = connection.db('Cookmaster');
+});
+
+describe('ROUTES', () => {
+    describe('/POST /users', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .post('/users')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(400);
+            done();
+            });
+        });
+    });
+
+    describe('/POST /login', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .post('/login')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+    });
+
+    describe('/POST /users/admin', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .post('/users/admin')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+    });
+
+    describe('/POST /recipes', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .post('/recipes')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(400);
+            done();
+            });
+        });
+    });
+
+    describe('/GET /recipes', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .get('/recipes')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
+            done();
+            });
+        });
+    });
+
+    describe('/GET /recipes/:id ', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .get('/recipes/4646465465465')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(404);
+            done();
+            });
+        });
+    });
+
+
+    describe('/PUT /recipes/:id ', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .put('/recipes/4646465465465')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+    });
+
+    describe('/DELETE /recipes/:id ', function() {
+        it('should exists route', function(done) {
+            chai.request(app)
+            .delete('/recipes/4646465465465')
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+    });
+
+});
+
+describe('USER', () => {
+
+    describe('Smoke Tests', () => {
+
+        it('should exist the `addUser`', () => {
+            expect(user.addUser).to.exist;
+        });
+
+        it('should exist the `login`', () => {
+            expect(user.login).to.exist;
+        });
+
+        it('should exist the `validEntriesAdd`', () => {
+            expect(usersHelp.validEntriesAdd).to.exist;
+        });
+
+        it('should exist the `validEntriesLogin`', () => {
+            expect(usersHelp.validEntriesLogin).to.exist;
+        });
+
+    });
+
+    describe('Helpers', () => {
     
         it('Should be validated invalid entries', async () => {
             req = {'body' : { name: 'teste' } };
@@ -35,36 +170,78 @@ describe('HELPERS', () => {
             expect(usersHelp.validEntriesLogin(req)).to.be.equal(true);
         });
 
-    });
-
-    describe('Token', () => {
-        
-        it('Should be validated invalid email', async () => {
-            req = {'body' : { name: 'teste', email: 'teste@', password: '123456' } };
-            expect(usersHelp.validEntriesAdd(req)).to.be.equal(false);
-        });
-        
-        it('Should be validated entries', async () => {
-            req = {'body' : { name: 'teste', email: 'teste@email.com', password: '123456' } };
-            expect(usersHelp.validEntriesAdd(req)).to.be.equal(true);
-        });
-
-        it('Should be validated incorrect data to login', async () => {
-            req = {'body' : { email: 'teste@teste.com' } };
-            expect(usersHelp.validEntriesLogin(req)).to.be.equal(false);
-        });
-
-        it('Should be validated correct data to login', async () => {
-            req = {'body' : { email: 'teste@teste.com', password: '123456' } };
-            expect(usersHelp.validEntriesLogin(req)).to.be.equal(true);
+        it('Should be validated getting user from token', async () => {
+            req = {'headers' : { authorization: 'sdasdasdasda' } };
+            expect(await usersHelp.getUserByToken(req)).to.be.equal(0);
         });
 
     });
 
+    describe('Actions', () => {
+
+        before(async () => {
+
+            await db.collection('users').deleteMany({});
+
+            userAdmin = { name: 'admin', email: 'root@email.com', password: 'admin', role: 'admin' };
+            await db.collection('users').insertOne(userAdmin);
+
+        });
+
+        it('Should be added', async () => {
+            await frisby
+                .post(`${url}/users/`,
+                    {
+                        name: 'user teste',
+                        email: 'user@email.com',
+                        password: 'teste',
+                    })
+                .expect('status', 201)
+                .then((response) => {
+                    
+                    const { body } = response;
+                    
+                    const result = JSON.parse(body);
+                    expect(result.user.name).equal('user teste');
+                });
+        });
+
+    });
+    
 });
 
+describe('RECIPE', () => {
 
-describe('Recipe', () => {
+    let userTeste;
+    let userToken;
+
+    before(async () => {
+
+        await db.collection('users').deleteMany({});
+        await db.collection('recipes').deleteMany({});
+
+        const users = [
+            { name: 'admin teste', email: 'admin@email.com', password: 'admin', role: 'admin' },
+            { name: 'user teste', email: 'user@email.com', password: 'user', role: 'user' }
+        ];
+        await db.collection('users').insertMany(users);
+
+        await frisby
+                .post(`${url}/login/`,
+                    {
+                        email: 'user@email.com',
+                        password: 'user',
+                    })
+                .expect('status', 200)
+                .then((response) => {
+                    
+                    const { body } = response;
+                    
+                    const result = JSON.parse(body);
+                    userToken = result.token;
+                });
+
+    });
 
     describe('Smoke Tests', () => {
 
@@ -96,70 +273,110 @@ describe('Recipe', () => {
             expect(recipe.getImage).to.exist;
         });
 
-        // it('should return `recipe not found` when id not found in database', () => {
-        //     expect(recipe.validId(3)).to.be.equal('recipe not found');
-        // });
-
-    });
-    
-});
-
-describe('User', () => {
-
-    describe('Smoke Tests', () => {
-
-        it('should exist the `addUser`', () => {
-            expect(user.addUser).to.exist;
-        });
-
-        it('should exist the `login`', () => {
-            expect(user.login).to.exist;
-        });
-
-        it('should exist the `validEntriesAdd`', () => {
-            expect(usersHelp.validEntriesAdd).to.exist;
-        });
-
-        it('should exist the `validEntriesLogin`', () => {
-            expect(usersHelp.validEntriesLogin).to.exist;
-        });
-
     });
 
-    describe('CRUD', () => {
+    describe('Helpers', () => {
 
-        const mongoDbUrl = 'mongodb://localhost:27017/Cookmaster';
-        const url = 'http://localhost:3000';
-
-        let connection;
-        let db;
-
-        before(async () => {
-            connection = await MongoClient.connect(mongoDbUrl, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-            });
-            db = connection.db('Cookmaster');
+        it('Should be validated invalid entries', async () => {
+            req = {'body' : { name: 'teste', ingredients: 'teste' } };
+            resp = await recipesHelp.validEntriesAdd(req);
+            expect(resp.status).to.be.equal(400);
         });
+
+        it('Should be validated find by id', async () => {
+            req = {'params' : { id: '123' } };
+            resp = await recipesHelp.validId(req);
+            expect(resp.status).to.be.equal(404);
+        });
+
+        it('Should be validated if user is not owner of Recipe', async () => {
+            req = {'params' : { id: '123' } };
+            resp = await recipesHelp.validUserOwnerRecipe(req);
+            expect(resp.status).to.be.equal(401);
+        });
+
+        it('Should be validated if token is not valid', async () => {
+            req = {'headers' : { authorization: '123' } };
+            async (req, res) => await verifyTokenHelp.checkToken(req);
+            expect(resp.status).to.be.equal(401);
+        });
+
+    });
+
+    describe('Actions', () => {
+
+        let userRecipe;
 
         it('Should be added', async () => {
             await frisby
-                .post(`${url}/users/`,
+                .setup({
+                    request: {
+                    headers: {
+                        Authorization: userToken,
+                        'Content-Type': 'application/json',
+                    },
+                    },
+                })
+                .post(`${url}/recipes/`,
                     {
-                        name: 'teste automatico',
-                        email: 'teste@email.com',
-                        password: 'teste',
+                        name: 'receita user teste',
+                        ingredients: 'arroz, feijão',
+                        preparation: 'esquentar tudo junto',
                     })
                 .expect('status', 201)
                 .then((response) => {
                     
                     const { body } = response;
-                    
                     const result = JSON.parse(body);
-                    expect(result.user.name).equal('teste automatico');
+                    expect(result.recipe.name).equal('receita user teste');
+                    userRecipe = result.recipe;
                 });
         });
+
+        it('Should exists recipe by valid ID', async () => {
+            req = {'params' : { id: userRecipe._id } };
+            resp = await recipesHelp.validId(req);
+            expect(resp.status).to.be.equal(200);
+        });
+
+        it('Should be validated if user is owner of Recipe', async () => {
+            req = {
+                'params' : { id: userRecipe }, 
+                'headers' : { authorization: userToken },
+                };
+            resp = await recipesHelp.validUserOwnerRecipe(req, userRecipe);
+            expect(resp.status).to.be.equal(200);
+        });
+
+
+        it('Should be updated', async () => {
+            await frisby
+                .setup({
+                    request: {
+                        headers: {
+                            Authorization: userToken,
+                            'Content-Type': 'application/json',
+                        },
+                        params: {
+                            id: userRecipe.id,
+                        },
+                    },
+                })
+                .post(`${url}/recipes/`,
+                    {
+                        name: 'receita updated',
+                        ingredients: 'arroz, feijão, batata',
+                        preparation: 'esquentar tudo junto',
+                    })
+                .expect('status', 201);
+        });
+
 
     });
     
 });
+
+
+
+
+

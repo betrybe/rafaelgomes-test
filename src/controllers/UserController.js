@@ -48,8 +48,10 @@ module.exports = class UserController {
     static async addUserAdmin(req, res) {
         const { name, email, password } = req.body;
         const currentUser = await usersHelp.getUserByToken(req);
-        console.log(currentUser);
-
+        if (!currentUser) {
+            res.status(401).json({ message: 'All fields must be filled' });
+            return;
+        }
         if (currentUser.role === 'admin') {
             // create a user
             const newUser = new User({ name, email, password, role: 'admin' });
