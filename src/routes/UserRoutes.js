@@ -2,7 +2,7 @@ const router = require('express').Router();
 
 const UserController = require('../controllers/UserController');
 
-router.post('/', UserController.users);
-router.get('/checkuser', UserController.checkUser);
+router.post('/', UserController.addUser);
+router.post('/admin', UserController.addUserAdmin);
 
 module.exports = router;

@@ -205,4 +205,8 @@ module.exports = class RecipeController {
         const recipeUpdated = await Recipe.findById(req.params.id);
         res.status(200).json(recipeUpdated);
     }
+
+    static async getImage(req, res) {
+        res.status(200).json();
+    }
 };

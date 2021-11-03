@@ -13,10 +13,12 @@ app.use('/images', express.static(path.join(__dirname, '..', 'uploads')));
 const UserRoutes = require('../routes/UserRoutes');
 const LoginRoutes = require('../routes/LoginRoutes');
 const RecipeRoutes = require('../routes/RecipeRoutes');
+const ImageRoutes = require('../routes/ImageRoutes');
 
 app.use('/users', UserRoutes);
 app.use('/login', LoginRoutes);
 app.use('/recipes', RecipeRoutes);
+app.use('/images', ImageRoutes);
 
 // Não remover esse end-point, ele é necessário para o avaliador
 app.get('/', (request, response) => {

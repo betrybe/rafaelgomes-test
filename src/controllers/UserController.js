@@ -1,45 +1,14 @@
-const validator = require('email-validator');
-const jwt = require('jsonwebtoken');
-
 const User = require('../models/Users');
 
 // helpers
+const usersHelp = require('../helpers/users-helpers');
 const createUserToken = require('../helpers/create-user-token');
-const getToken = require('../helpers/get-token');
-
-function validEntriesAdd(req) {
-    const { name, email, password } = req.body;
-    
-    if (!email || !password || !name) {
-        return false;
-    }
-
-    if (!validator.validate(email)) {
-        return false;
-    }
-
-    return true;
-}
-
-function validEntriesLogin(req) {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-        return false;
-    }
-
-    if (!validator.validate(email)) {
-        return false;
-    }
-
-    return true;
-}
 
 module.exports = class UserController {
-    static async users(req, res) {
+    static async addUser(req, res) {
         const { name, email, password } = req.body;
         // validations
-        if (!validEntriesAdd(req)) {
+        if (!usersHelp.validEntriesAdd(req)) {
             res.status(400).json({ message: 'Invalid entries. Try again.' });
             return;
         } 
@@ -51,10 +20,8 @@ module.exports = class UserController {
         // create a user
         const newUser = new User({ name, email, password, role: 'user' });
         try {
-            const nUser = await newUser.save();
-
-            const user = { name: nUser.name, email: nUser.email, role: nUser.role, _id: nUser.id };
-
+            const nUsr = await newUser.save();
+            const user = { name: nUsr.name, email: nUsr.email, role: 'user', _id: nUsr.id };
             res.status(201).json({ user });
         } catch (error) {
             res.status(500).json({ message: error });
@@ -64,7 +31,7 @@ module.exports = class UserController {
     static async login(req, res) {
         const { email, password } = req.body;
         // validations
-        if (!validEntriesLogin(req)) {
+        if (!usersHelp.validEntriesLogin(req)) {
             res.status(401).json({ message: 'All fields must be filled' });
             return;
         } 
@@ -78,17 +45,23 @@ module.exports = class UserController {
         await createUserToken(user, req, res);
     }
 
-    static async checkUser(req, res) {
-        let currentUser;
-        
-        if (req.headers.authorization) {
-            const token = getToken(req);
-            const decoded = jwt.verify(token, 'SECRETFORCOOKMASTER');
-            currentUser = await User.findById(decoded.id);
-        } else {
-            currentUser = null;
-        }
+    static async addUserAdmin(req, res) {
+        const { name, email, password } = req.body;
+        const currentUser = await usersHelp.getUserByToken(req);
+        console.log(currentUser);
 
-        res.status(200).send(currentUser);
+        if (currentUser.role === 'admin') {
+            // create a user
+            const newUser = new User({ name, email, password, role: 'admin' });
+            try {
+                const nUsr = await newUser.save();
+                const user = { name: nUsr.name, email: nUsr.email, role: 'admin', _id: nUsr.id };
+                res.status(201).json({ user });
+            } catch (error) {
+                res.status(500).json({ message: error });
+            }
+        } else {
+            res.status(403).json({ message: 'Only admins can register new admins' });
+        }
     }
 };
