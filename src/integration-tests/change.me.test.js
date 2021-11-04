@@ -3,7 +3,11 @@ var chai = require('chai')
 var chaiHttp = require('chai-http');
 
 const frisby = require('frisby');
-const { MongoClient } = require('mongodb');
+const fs = require('fs');
+const path = require('path');
+
+const Recipe = require('../models/Recipes');
+const User = require('../models/Users');
 
 var recipe = require('../controllers/RecipeController')
 var user = require('../controllers/UserController')
@@ -11,70 +15,36 @@ const usersHelp = require('../helpers/users-helpers');
 const recipesHelp = require('../helpers/recipes-helpers');
 const app = require('../api/app');
 
-
-
 chai.use(chaiHttp);
 
-const mongoDbUrl = 'mongodb://localhost:27017/Cookmaster';
 const url = 'http://localhost:3000';
-
-let connection;
-let db;
 
 let userToken;
 let adminToken;
+let userRecipe;
 
 before(async () => {
-    connection = await MongoClient.connect(mongoDbUrl, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+
+    await Recipe.deleteMany({}).then(function(){
+        console.log("Recipes deleted"); // Success
+    }).catch(function(error){
+        console.log(error); // Failure
     });
-    db = connection.db('Cookmaster');
-
-    await db.collection('users').deleteMany({});
-    await db.collection('recipes').deleteMany({});
-
-    const users = [
-        { name: 'admin teste', email: 'admin@email.com', password: 'admin', role: 'admin' },
-        { name: 'user teste', email: 'user@email.com', password: 'user', role: 'user' }
-    ];
-    await db.collection('users').insertMany(users);
-
-    await frisby
-    .post(`${url}/login/`,
-        {
-            email: 'user@email.com',
-            password: 'user',
-        })
-    .expect('status', 200)
-    .then((response) => {
-        
-        const { body } = response;
-        
-        const result = JSON.parse(body);
-        userToken = result.token;
+    
+    await User.deleteMany({}).then(function(){
+        console.log("Users deleted"); // Success
+    }).catch(function(error){
+        console.log(error); // Failure
     });
 
-    await frisby
-    .post(`${url}/login/`,
-        {
-            email: 'admin@email.com',
-            password: 'admin',
-        })
-    .expect('status', 200)
-    .then((response) => {
-        
-        const { body } = response;
-        
-        const result = JSON.parse(body);
-        adminToken = result.token;
-    });
+    const users = [{ name: 'admin manual', email: 'admin@email.com', password: 'admin', role: 'admin' }];
+    await User.insertMany(users);
 
 });
 
 describe('ROUTES', () => {
     describe('/POST /users', function() {
-        it('should exists route', function(done) {
+        it('should exists `/users` route', function(done) {
             chai.request(app)
             .post('/users')
             .end(function(error, res) {
@@ -82,10 +52,23 @@ describe('ROUTES', () => {
             done();
             });
         });
+        it('should be insert user from `/users` route', function(done) {
+            chai.request(app)
+            .post('/users')
+            .send({
+                name: "name test",
+                email: "email@test.com",
+                password: "123"
+                })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(201);
+            done();
+            });
+        });
     });
 
     describe('/POST /login', function() {
-        it('should exists route', function(done) {
+        it('should exists `/login` route', function(done) {
             chai.request(app)
             .post('/login')
             .end(function(error, res) {
@@ -93,14 +76,54 @@ describe('ROUTES', () => {
             done();
             });
         });
+        it('should be login user from `/login` route', function(done) {
+            chai.request(app)
+            .post('/login')
+            .send({
+                email: 'email@test.com',
+                password: '123',
+            })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
+                userToken = res.body.token;
+            done();
+            });
+        });
+        it('should be login admin from `/login` route', function(done) {
+            chai.request(app)
+            .post('/login')
+            .send({
+                email: 'admin@email.com',
+                password: 'admin',
+            })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
+                adminToken = res.body.token;
+            done();
+            });
+        });
     });
 
     describe('/POST /users/admin', function() {
-        it('should exists route', function(done) {
+        it('should exists `/users/admin` route', function(done) {
             chai.request(app)
             .post('/users/admin')
             .end(function(error, res) {
                 expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+        it('should be insert user admin from `/users/admin` route', function(done) {
+            chai.request(app)
+            .post('/users')
+            .set('Authorization', adminToken)
+            .send({
+                name: "admin new test",
+                email: "emailadmin@test.com",
+                password: "123"
+                })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(201);
             done();
             });
         });
@@ -112,6 +135,23 @@ describe('ROUTES', () => {
             .post('/recipes')
             .end(function(error, res) {
                 expect(res.status).to.be.equal(400);
+            done();
+            });
+        });
+
+        it('should be insert recipe from `/recipes` route', function(done) {
+            chai.request(app)
+            .post('/recipes')
+            .set('Authorization', userToken)
+            .send({
+                name: 'receita user via rota',
+                ingredients: 'arroz, alface',
+                preparation: 'esquentar tudo junto',
+            })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(201);
+                expect(res.body.recipe.name).equal('receita user via rota');
+                userRecipe = res.body.recipe;
             done();
             });
         });
@@ -129,9 +169,9 @@ describe('ROUTES', () => {
     });
 
     describe('/GET /recipes/:id ', function() {
-        it('should exists route', function(done) {
+        it('should exists `recipes/:id` route', function(done) {
             chai.request(app)
-            .get('/recipes/4646465465465')
+            .get(`${url}/recipes/${userRecipe._id}`)
             .end(function(error, res) {
                 expect(res.status).to.be.equal(404);
             done();
@@ -141,11 +181,71 @@ describe('ROUTES', () => {
 
 
     describe('/PUT /recipes/:id ', function() {
-        it('should exists route', function(done) {
+        
+        it('should exists `/recipes` route', function(done) {
             chai.request(app)
             .put('/recipes/4646465465465')
             .end(function(error, res) {
                 expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+
+        it('should be edit (user) recipe from `/recipes` route', function(done) {
+            chai.request(app)
+            .put(`/recipes/${userRecipe._id}`)
+            .set('Authorization', userToken)
+            .set('Content-Type', 'application/json')
+            .send({
+                name: 'receita atualizada por user',
+                ingredients: 'arroz, alface, batata',
+                preparation: 'esquentar tudo junto',
+            })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
+                expect(res.body.name).equal('receita atualizada por user');
+            done();
+            });
+        });
+
+        it('should be edit (admin) recipe from `/recipes` route', function(done) {
+            chai.request(app)
+            .put(`/recipes/${userRecipe._id}`)
+            .set('Authorization', adminToken)
+            .set('Content-Type', 'application/json')
+            .send({
+                name: 'receita atualizada por user',
+                ingredients: 'arroz, alface, batata',
+                preparation: 'esquentar tudo junto',
+            })
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
+                expect(res.body.name).equal('receita atualizada por user');
+            done();
+            });
+        });
+    });
+
+
+    describe('/PUT /recipes/:id/image ', function() {
+        it('should exists `/recipes/:id/image` route', function(done) {
+            chai.request(app)
+            .put(`/recipes/${userRecipe._id}/image`)
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(401);
+            done();
+            });
+        });
+        it('should be uploaded image to `/recipes/:id/image` route', function(done) {
+            const photoFile = path.resolve(__dirname, '../uploads/ratinho.jpg');
+            const content = fs.createReadStream(photoFile);
+            
+            chai.request(app)
+            .put(`/recipes/${userRecipe._id}/image`)
+            .set('Authorization', adminToken)
+            .attach('image', content)
+            .end(function(error, res) {
+                expect(res.status).to.be.equal(200);
             done();
             });
         });
@@ -161,6 +261,8 @@ describe('ROUTES', () => {
             });
         });
     });
+
+
 
 });
 
@@ -220,57 +322,6 @@ describe('USER', () => {
 
     });
 
-    describe('Actions', () => {
-
-        it('Should be added', async () => {
-            await frisby
-                .post(`${url}/users/`,
-                    {
-                        name: 'user teste 2',
-                        email: 'user2@email.com',
-                        password: 'teste',
-                    })
-                .expect('status', 201)
-                .then((response) => {
-                    const { json } = response;
-                    expect(json.user.name).equal('user teste 2');
-                });
-        });
-
-        it('Should be added admin', async () => {
-            await frisby
-            .post(`${url}/login/`,
-                {
-                email: 'admin@email.com',
-                password: 'admin',
-                })
-            .expect('status', 200)
-            .then((response) => {
-                const { body } = response;
-                result = JSON.parse(body);
-                return frisby
-                .setup({
-                    request: {
-                    headers: {
-                        Authorization: result.token,
-                        'Content-Type': 'application/json',
-                    },
-                    },
-                })
-                .post(`${url}/users/admin`,
-                    {
-                    name: 'admin novo teste',
-                    email: 'admin2@email.com',
-                    password: 'admin',
-                    })
-                .expect('status', 201)
-                .then((responseAdmin) => {
-                    const { json } = responseAdmin;
-                    expect(json.user.name).equal('admin novo teste');
-                });
-            });
-        });
-    });
 });
 
 describe('RECIPE', () => {
@@ -351,34 +402,6 @@ describe('RECIPE', () => {
 
     describe('Actions', () => {
 
-        let userRecipe;
-
-        it('Should be added', async () => {
-            await frisby
-                .setup({
-                    request: {
-                    headers: {
-                        Authorization: userToken,
-                        'Content-Type': 'application/json',
-                    },
-                    },
-                })
-                .post(`${url}/recipes/`,
-                    {
-                        name: 'receita user teste',
-                        ingredients: 'arroz, feijão',
-                        preparation: 'esquentar tudo junto',
-                    })
-                .expect('status', 201)
-                .then((response) => {
-                    
-                    const { body } = response;
-                    const result = JSON.parse(body);
-                    expect(result.recipe.name).equal('receita user teste');
-                    userRecipe = result.recipe;
-                });
-        });
-
         it('Should exists recipe by valid ID', async () => {
             req = {'params' : { id: userRecipe._id } };
             resp = await recipesHelp.validId(req);
@@ -394,25 +417,6 @@ describe('RECIPE', () => {
             expect(resp.status).to.be.equal(200);
         });
 
-
-        it('Should be updated', async () => {
-            await frisby
-                .setup({
-                    request: {
-                        headers: {
-                            Authorization: userToken,
-                            'Content-Type': 'application/json',
-                        },
-                    },
-                })
-                .put(`${url}/recipes/${userRecipe._id}`,
-                    {
-                        name: 'receita updated',
-                        ingredients: 'arroz, feijão, batata',
-                        preparation: 'esquentar tudo junto',
-                    })
-                .expect('status', 200);
-        });
 
         it('Should be deleted', async () => {
             await frisby

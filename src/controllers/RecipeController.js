@@ -1,6 +1,5 @@
 // helpers
 const recipesHelp = require('../helpers/recipes-helpers');
-// const getToken = require('../helpers/get-token');
 
 const Recipe = require('../models/Recipes');
 
