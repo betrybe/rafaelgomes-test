@@ -53,7 +53,6 @@ module.exports = class UserController {
             return;
         }
         if (currentUser.role === 'admin') {
-            // create a user
             const newUser = new User({ name, email, password, role: 'admin' });
             try {
                 const nUsr = await newUser.save();

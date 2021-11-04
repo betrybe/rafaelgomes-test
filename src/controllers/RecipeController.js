@@ -72,6 +72,7 @@ module.exports = class RecipeController {
         
         // check if recipe exists
         let result = await recipesHelp.validId(req);
+        
         if (result.status !== 200) {
             res.status(result.status).json({ message: result.message });
             return;

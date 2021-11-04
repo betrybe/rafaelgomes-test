@@ -27,7 +27,6 @@ module.exports = {
     async validId(req) {
         const { id } = req.params;
         const result = { status: 200, message: '', recipe: 0 };
-    
         if (!ObjectId.isValid(id)) {
             result.status = 404;
             result.message = 'recipe not found';
@@ -35,11 +34,7 @@ module.exports = {
         }
     
         const recipe = await Recipe.findById({ _id: id });
-        if (!recipe) {
-            result.status = 404;
-            result.message = 'recipe not found';
-            return result;
-        } 
+
         result.recipe = recipe;
         return result;
     },
