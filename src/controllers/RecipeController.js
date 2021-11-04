@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 // helpers
 const recipesHelp = require('../helpers/recipes-helpers');
 
@@ -115,6 +118,14 @@ module.exports = class RecipeController {
     }
 
     static async getImage(req, res) {
-        res.status(200).json();
+        const image = req.params.id;
+        const imgFile = path.resolve(__dirname, '../uploads/', image);
+
+        fs.access(imgFile, fs.F_OK, (err) => {
+            if (err) {
+                res.status(404).json({ message: 'image not found' });
+            }
+            res.status(200).json(`http://${req.headers.host}/src/uploads/${image}`);
+        });
     }
 };
