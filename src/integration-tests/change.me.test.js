@@ -21,12 +21,55 @@ const url = 'http://localhost:3000';
 let connection;
 let db;
 
+let userToken;
+let adminToken;
+
 before(async () => {
     connection = await MongoClient.connect(mongoDbUrl, {
         useNewUrlParser: true,
         useUnifiedTopology: true,
     });
     db = connection.db('Cookmaster');
+
+    await db.collection('users').deleteMany({});
+    await db.collection('recipes').deleteMany({});
+
+    const users = [
+        { name: 'admin teste', email: 'admin@email.com', password: 'admin', role: 'admin' },
+        { name: 'user teste', email: 'user@email.com', password: 'user', role: 'user' }
+    ];
+    await db.collection('users').insertMany(users);
+
+    await frisby
+    .post(`${url}/login/`,
+        {
+            email: 'user@email.com',
+            password: 'user',
+        })
+    .expect('status', 200)
+    .then((response) => {
+        
+        const { body } = response;
+        
+        const result = JSON.parse(body);
+        userToken = result.token;
+    });
+
+    await frisby
+    .post(`${url}/login/`,
+        {
+            email: 'admin@email.com',
+            password: 'admin',
+        })
+    .expect('status', 200)
+    .then((response) => {
+        
+        const { body } = response;
+        
+        const result = JSON.parse(body);
+        adminToken = result.token;
+    });
+
 });
 
 describe('ROUTES', () => {
@@ -179,69 +222,58 @@ describe('USER', () => {
 
     describe('Actions', () => {
 
-        before(async () => {
-
-            await db.collection('users').deleteMany({});
-
-            userAdmin = { name: 'admin', email: 'root@email.com', password: 'admin', role: 'admin' };
-            await db.collection('users').insertOne(userAdmin);
-
-        });
-
         it('Should be added', async () => {
             await frisby
                 .post(`${url}/users/`,
                     {
-                        name: 'user teste',
-                        email: 'user@email.com',
+                        name: 'user teste 2',
+                        email: 'user2@email.com',
                         password: 'teste',
                     })
                 .expect('status', 201)
                 .then((response) => {
-                    
-                    const { body } = response;
-                    
-                    const result = JSON.parse(body);
-                    expect(result.user.name).equal('user teste');
+                    const { json } = response;
+                    expect(json.user.name).equal('user teste 2');
                 });
         });
 
+        it('Should be added admin', async () => {
+            await frisby
+            .post(`${url}/login/`,
+                {
+                email: 'admin@email.com',
+                password: 'admin',
+                })
+            .expect('status', 200)
+            .then((response) => {
+                const { body } = response;
+                result = JSON.parse(body);
+                return frisby
+                .setup({
+                    request: {
+                    headers: {
+                        Authorization: result.token,
+                        'Content-Type': 'application/json',
+                    },
+                    },
+                })
+                .post(`${url}/users/admin`,
+                    {
+                    name: 'admin novo teste',
+                    email: 'admin2@email.com',
+                    password: 'admin',
+                    })
+                .expect('status', 201)
+                .then((responseAdmin) => {
+                    const { json } = responseAdmin;
+                    expect(json.user.name).equal('admin novo teste');
+                });
+            });
+        });
     });
-    
 });
 
 describe('RECIPE', () => {
-
-    let userTeste;
-    let userToken;
-
-    before(async () => {
-
-        await db.collection('users').deleteMany({});
-        await db.collection('recipes').deleteMany({});
-
-        const users = [
-            { name: 'admin teste', email: 'admin@email.com', password: 'admin', role: 'admin' },
-            { name: 'user teste', email: 'user@email.com', password: 'user', role: 'user' }
-        ];
-        await db.collection('users').insertMany(users);
-
-        await frisby
-                .post(`${url}/login/`,
-                    {
-                        email: 'user@email.com',
-                        password: 'user',
-                    })
-                .expect('status', 200)
-                .then((response) => {
-                    
-                    const { body } = response;
-                    
-                    const result = JSON.parse(body);
-                    userToken = result.token;
-                });
-
-    });
 
     describe('Smoke Tests', () => {
 
@@ -283,6 +315,20 @@ describe('RECIPE', () => {
             expect(resp.status).to.be.equal(400);
         });
 
+        it('Should be validated token invalid', async () => {
+            req = {'body' : { name: 'teste', ingredients: 'teste', preparation: 'teste preparation' },
+                'headers' : { authorization: 'tokeninvalido' } };
+            resp = await recipesHelp.validEntriesAdd(req);
+            expect(resp.status).to.be.equal(401);
+        });
+
+        it('Should be validated entries', async () => {
+            req = {'body' : { name: 'teste', ingredients: 'teste', preparation: 'teste preparation' },
+                'headers' : { authorization: userToken } };
+            resp = await recipesHelp.validEntriesAdd(req);
+            expect(resp.status).to.be.equal(200);
+        });
+
         it('Should be validated find by id', async () => {
             req = {'params' : { id: '123' } };
             resp = await recipesHelp.validId(req);
@@ -297,7 +343,7 @@ describe('RECIPE', () => {
 
         it('Should be validated if token is not valid', async () => {
             req = {'headers' : { authorization: '123' } };
-            async (req, res) => await verifyTokenHelp.checkToken(req);
+            async () => await verifyTokenHelp.checkToken(req, resp);
             expect(resp.status).to.be.equal(401);
         });
 
@@ -357,18 +403,29 @@ describe('RECIPE', () => {
                             Authorization: userToken,
                             'Content-Type': 'application/json',
                         },
-                        params: {
-                            id: userRecipe.id,
-                        },
                     },
                 })
-                .post(`${url}/recipes/`,
+                .put(`${url}/recipes/${userRecipe._id}`,
                     {
                         name: 'receita updated',
                         ingredients: 'arroz, feijão, batata',
                         preparation: 'esquentar tudo junto',
                     })
-                .expect('status', 201);
+                .expect('status', 200);
+        });
+
+        it('Should be deleted', async () => {
+            await frisby
+                .setup({
+                    request: {
+                        headers: {
+                            Authorization: userToken,
+                            'Content-Type': 'application/json',
+                        },
+                    },
+                })
+                .delete(`${url}/recipes/${userRecipe._id}`)
+                .expect('status', 204);
         });
 
 
